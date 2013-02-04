@@ -27,11 +27,17 @@ from openstack.common import importutils
 from openstack.common import jsonutils
 from openstack.common import local
 from openstack.common import log as logging
+from openstack.common.signature import dsa
 
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+rpc_opts = [
+    cfg.StrOpt('rpc_signing_private_key', default='private_key_integers'),
+    cfg.StrOpt('rpc_signing_public_key', default='public_key_integers')
+]
+CONF.register_opts(rpc_opts)
 
 '''RPC Envelope Version.
 
@@ -468,3 +474,18 @@ def deserialize_msg(msg):
     raw_msg = jsonutils.loads(msg[_MESSAGE_KEY])
 
     return raw_msg
+
+
+def generate_keypair():
+    signer = dsa.DSASigner()
+    signer.save(open(CONF.rpc_signing_private_key, 'w'))
+    signer.save_public_key(open(CONF.rpc_signing_public_key, 'w'))
+    
+
+def sign_msg(message):
+    signer = dsa.DSASigner(open(CONF.rpc_signing_private_key))
+    return signer.sign(message)
+
+def verify_msg(signature, message):
+    verifier = dsa.DSAVerifier(open(CONF.rpc_signing_public_key))
+    return verifier.verify(signature, message)
